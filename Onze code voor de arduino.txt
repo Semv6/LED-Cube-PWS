@@ -1,0 +1,635 @@
+#include <SPI.h>
+//Hier wordt de SPI library geïncludeerd
+
+#define KNOP_PIN 8
+#define RODE_LED 5
+#define GROENE_LED 7
+//Hier worden een aantal namen van de inputs en de outputs gedefinieerd.
+
+uint8_t knal1X;
+uint8_t knal1Y;
+uint8_t knal1Z;
+uint8_t pijl1Y=0;
+uint8_t klaar1=0;
+int knalStatus1=0;
+uint8_t kans1=0;
+
+uint8_t knal2X;
+uint8_t knal2Y;
+uint8_t knal2Z;
+uint8_t pijl2Y=0;
+uint8_t klaar2=0;
+int knalStatus2=0;
+uint8_t kans2=0;
+
+uint8_t knal3X;
+uint8_t knal3Y;
+uint8_t knal3Z;
+uint8_t pijl3Y=0;
+uint8_t klaar3=0;
+int knalStatus3=0;
+uint8_t kans3=0;
+
+int startLaser1=0;
+uint8_t xPosA1;
+uint8_t yPosA1;
+uint8_t zPosA1;
+uint8_t xPosB1;
+uint8_t yPosB1;
+uint8_t zPosB1;
+uint8_t xPosC1;
+uint8_t yPosC1;
+uint8_t zPosC1;
+uint8_t xDir1;
+uint8_t yDir1;
+uint8_t zDir1;
+uint8_t xPosA2;
+uint8_t yPosA2;
+uint8_t zPosA2;
+uint8_t xPosB2;
+uint8_t yPosB2;
+uint8_t zPosB2;
+uint8_t xPosC2;
+uint8_t yPosC2;
+uint8_t zPosC2;
+uint8_t xDir2;
+uint8_t yDir2;
+uint8_t zDir2;
+uint8_t xPosA3;
+uint8_t yPosA3;
+uint8_t zPosA3;
+uint8_t xPosB3;
+uint8_t yPosB3;
+uint8_t zPosB3;
+uint8_t xPosC3;
+uint8_t yPosC3;
+uint8_t zPosC3;
+uint8_t xDir3;
+uint8_t yDir3;
+uint8_t zDir3;
+
+float a;
+float z;
+
+int hoek=0;
+int ronde=0;
+
+float graden=0;
+uint16_t tijd;
+bool lege_cube = true;
+int knopStatus;
+int animatie=0;
+int ingedrukt=0;
+uint8_t cube[8][8];
+//Hier worden alle benodigde variabelen gedeclareerd.
+
+void setup() {
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(800000, MSBFIRST, SPI_MODE0));
+  pinMode(KNOP_PIN, INPUT);
+  pinMode(RODE_LED, OUTPUT);
+  pinMode(GROENE_LED, OUTPUT);
+
+  randomSeed(analogRead(0));
+}
+//Hier wordt de SPI, de inputs en de outputs geïnitialiseerd.
+
+void loop() {
+  knopStatus = digitalRead(KNOP_PIN);
+  if(knopStatus==HIGH){
+    if (animatie == 4 && ingedrukt==0){
+      animatie=0;
+    }
+    else if(ingedrukt==0){
+      animatie++;
+    }
+    ingedrukt=1;
+    clearCube();
+  }
+  else{
+    ingedrukt=0;}
+  //Hier wordt gekeken of de knop ingedrukt wordt.
+  //Zoja, dan wordt animatie met één verhoogd of naar nul gezet als hij al vier is.
+  //Als de variabele ingedrukt één is, verandert de variabele animatie niet.
+  //Dit zorgt ervoor dat als de knop ingedrukt wordt, dat de variabele animatie maar één keer omhoog gaat.
+
+  switch(animatie){
+    case 0: 
+      tornado();
+      break;
+      
+    case 1:
+      exponentiele_kubus();
+      break;
+      
+    case 2: 
+      vuurwerk();
+      break;
+      
+    case 3: 
+      munt();
+      break;
+      
+    case 4: 
+      lasers();
+      break;
+  } 
+  //Bij deze switch wordt gewisselt tussen de animaties afhankelijk van de variabele animatie.
+
+  lege_cube = true;
+  for(int y = 0; y < 8; y++) {
+    for(int z = 0; z < 8; z++) {
+       if(cube[y][z] != 0) {
+          lege_cube = false;
+       }
+    }
+  } 
+  // Dit stuk code bekijkt of er geen enkel LED-lampje aanstaat.
+  // Zoja, dan wordt lege_cube false.
+
+  if (lege_cube){
+    digitalWrite(RODE_LED, HIGH);
+    digitalWrite(GROENE_LED, LOW);
+    
+  }
+  else{
+    digitalWrite(RODE_LED, LOW);
+    digitalWrite(GROENE_LED, HIGH);
+  }
+}
+//Hier wordt als elk LED-lampje uitstaat, de rode LED-lamp aangezet.
+//Zo niet, dan wordt de groene LED-lamp aangezet.
+
+
+
+
+void clearVoxel(uint8_t x,uint8_t y,uint8_t z){
+  cube[y][z] &= ~(0x01 << x);
+}
+//Met deze functie kan je een specifiek LED-lampje uitzetten.
+  
+void setVoxel(uint8_t x,uint8_t y,uint8_t z){
+  cube[y][z] |= (0x01 << x); 
+}
+// Met deze functie kan je een specifiek LED-lampje aanzetten.
+
+void renderCube(){
+  for(uint8_t i=0; i<8; i++){
+    digitalWrite(SS, LOW);
+    SPI.transfer(0x01 << i);
+    for(uint8_t j =0; j <8; j++){
+      SPI.transfer(cube[i][j]);
+    }
+    digitalWrite(SS, HIGH);
+  }
+}
+//Met deze functie worden alle voxels die aanstaan verstuurd naar de arduino om ze aan te zetten.
+  
+void clearCube(){
+  for (uint8_t i = 0; i < 8; i++) {
+    for (uint8_t j = 0; j < 8; j++) {
+      cube[i][j] = 0;
+    }
+  }
+}
+//Met deze functie worden alle LED-lampjes uitgezet.
+
+
+void afstandSetVoxel(int xCor, int yCor, int zCor, int afstand){
+  if(xCor+afstand<8){
+  setVoxel(xCor+afstand,yCor,zCor);
+  }
+  if(xCor-afstand>=0){
+  setVoxel(xCor-afstand,yCor,zCor);
+  }
+  if(yCor+afstand<8){
+  setVoxel(xCor,yCor+afstand,zCor);
+  }
+  if(yCor-afstand>=0){
+  setVoxel(xCor,yCor-afstand,zCor);
+  }
+  if(zCor+afstand<8){
+  setVoxel(xCor,yCor,zCor+afstand);
+  }
+  if(zCor+afstand>=0){
+  setVoxel(xCor,yCor,zCor-afstand);
+  }
+}
+//Hier wordt elk LED-lampje vanaf een bepaalde afstand van een punt aangezet.
+
+void lasers(){
+  tijd++;
+  if(tijd>100){
+    tijd=0;
+    clearCube();
+    if(startLaser1==1){
+      if(xPosA1==7 || xPosA1==0){
+        xDir1=-xDir1;
+      }
+      else if(yPosA1==7 || yPosA1==0 || zPosA1==7 || zPosA1==0){
+        xDir1=random(0,3)-1;
+      }
+        
+      if(yPosA1==7 || yPosA1==0){
+        yDir1=-yDir1;
+      }
+      else if(xPosA1==7 || xPosA1==0 || zPosA1==7 || zPosA1==0){
+        yDir1=random(0,3)-1;
+      }
+        
+      if(zPosA1==7 || zPosA1==0){
+        zDir1=-zDir1;
+      }
+      else if(yPosA1==7 || yPosA1==0 || xPosA1==7 || xPosA1==0){
+        zDir1=random(0,3)-1;
+      }
+      //Hier wordt gekeken of de laser aan de rand van de LED-cube zit.
+      //Zoja, dan krijgt hij een nieuwe willekeurige richting, die sowieso terug binnen de LED-cube gaat
+
+      xPosC1 = xPosB1;
+      yPosC1 = yPosB1;
+      zPosC1 = zPosB1;
+
+      xPosB1 = xPosA1;
+      yPosB1 = yPosA1;
+      zPosB1 = zPosA1;
+      
+      xPosA1 = xPosA1 + xDir1;
+      yPosA1 = yPosA1 + yDir1;
+      zPosA1 = zPosA1 + zDir1;
+      //Hier wordt alle drie de punten van de laser bijgewerkt.
+      //Dit stuk code wordt drie keer herhaald, zodat er drie lasers zijn.
+
+
+      if(xPosA2==7 || xPosA2==0){
+        xDir2=-xDir2;
+      }
+      else if(yPosA2==7 || yPosA2==0 || zPosA2==7 || zPosA2==0){
+        xDir2=random(0,3)-1;
+      }
+        
+      if(yPosA2==7 || yPosA2==0){
+        yDir2=-yDir2;
+      }
+      else if(xPosA2==7 || xPosA2==0 || zPosA2==7 || zPosA2==0){
+        yDir2=random(0,3)-1;
+      }
+        
+      if(zPosA2==7 || zPosA2==0){
+        zDir2=-zDir2;
+      }
+      else if(yPosA2==7 || yPosA2==0 || xPosA2==7 || xPosA2==0){
+        zDir2=random(0,3)-1;
+      }
+
+      xPosC2 = xPosB2;
+      yPosC2 = yPosB2;
+      zPosC2 = zPosB2;
+
+      xPosB2 = xPosA2;
+      yPosB2 = yPosA2;
+      zPosB2 = zPosA2;
+     
+      xPosA2 = xPosA2 + xDir2;
+      yPosA2 = yPosA2 + yDir2;
+      zPosA2 = zPosA2 + zDir2;
+
+
+      if(xPosA3==7 || xPosA3==0){
+        xDir3=-xDir3;
+      }
+      else if(yPosA3==7 || yPosA3==0 || zPosA3==7 || zPosA3==0){
+        xDir3=random(0,3)-1;
+      }
+        
+      if(yPosA3==7 || yPosA3==0){
+        yDir3=-yDir3;
+      }
+        else if(xPosA3==7 || xPosA3==0 || zPosA3==7 || zPosA3==0){
+        yDir3=random(0,3)-1;
+      }
+        
+      if(zPosA3==7 || zPosA3==0){
+        zDir3=-zDir3;
+      }
+        else if(yPosA3==7 || yPosA3==0 || xPosA3==7 || xPosA3==0){
+        zDir3=random(0,3)-1;
+      }
+
+      xPosC3 = xPosB3;
+      yPosC3 = yPosB3;
+      zPosC3 = zPosB3;
+
+      xPosB3 = xPosA3;
+      yPosB3 = yPosA3;
+      zPosB3 = zPosA3;
+     
+      xPosA3 = xPosA3 + xDir3;
+      yPosA3 = yPosA3 + yDir3;
+      zPosA3 = zPosA3 + zDir3;
+    }
+      
+    else{
+      xPosA1=random(1,7);
+      yPosA1=random(1,7);
+      zPosA1=random(1,7);
+      xDir1=random(0,3)-1;
+      yDir1=random(0,3)-1;
+      zDir1=random(0,3)-1;
+      xPosA2=random(1,7);
+      yPosA2=random(1,7);
+      zPosA2=random(1,7);
+      xDir2=random(0,3)-1;
+      yDir2=random(0,3)-1;
+      zDir2=random(0,3)-1;
+      xPosA3=random(1,7);
+      yPosA3=random(1,7);
+      zPosA3=random(1,7);
+      xDir3=random(0,3)-1;
+      yDir3=random(0,3)-1;
+      zDir3=random(0,3)-1;
+      startLaser1=1;
+    }
+    //Dit stuk code wordt alleen uitgevoerd bij de eerste keer dat deze functie uitgevoerd wordt.
+    //Voor de andere keren wordt het eerdere genoemde stuk code uitgevoerd.
+    //In dit stuk code wordt elke richting en positie van de lasers willekeurig gekozen.
+      
+    setVoxel(xPosA1,yPosA1,zPosA1);
+    setVoxel(xPosB1,yPosB1,zPosB1);
+    setVoxel(xPosC1,yPosC1,zPosC1);
+    setVoxel(xPosA2,yPosA2,zPosA2);
+    setVoxel(xPosB2,yPosB2,zPosB2);
+    setVoxel(xPosC2,yPosC2,zPosC2);
+    setVoxel(xPosA3,yPosA3,zPosA3);
+    setVoxel(xPosB3,yPosB3,zPosB3);
+    setVoxel(xPosC3,yPosC3,zPosC3);
+    //hier worden de LED-lampjes op de positie van de lasers aangezet.
+  }
+  renderCube();
+}
+
+void vuurwerk(){
+  tijd++;
+  if(tijd>150){
+    clearCube();
+    tijd=0;
+    
+    if(knalStatus1==4){
+      knalStatus1=0;
+    }
+    else if(knalStatus1==0){
+      kans1=random(1,4);
+      if(kans1==1){
+        knalStatus1=1;
+      }
+    }
+    else if(knalStatus1==2){
+      if(klaar1==1){
+        klaar1=0;
+        knalStatus1=3;
+      }
+    }
+    else{
+    knalStatus1++;
+    }
+    //Hier wordt de knalStatus met één verhoogd. Als hij al vier is, wordt hij teruggezet naar nul.
+    //Als de knalStatus nul is, is er maar een 1/3 kans dat hij vergroot wordt.
+    //Als de knalStatus twee is, zal hij alleen maar omhoog gaan als de vuurpijl helemaal boven gekomen is.
+  
+  
+
+    if(knalStatus1==1){
+      knal1X=random(0,8);
+      knal1Y=random(2,8);
+      knal1Z=random(0,8);
+    }
+    //Bij knalStatus één, wordt er een willekeurig punt gekozen boven de eerste twee LED-lampjes.
+
+    else if(knalStatus1==2){
+      setVoxel(knal1X, pijl1Y, knal1Z);
+      if(pijl1Y == knal1Y){
+        pijl1Y = 0;
+        klaar1=1;
+      }
+      else if(pijl1Y < knal1Y){
+        pijl1Y++;
+      }
+    }
+    //Bij knalStatus twee, gaat een stip steeds verder omhoog, 
+    //totdat hij het punt bereikt heeft die vastgesteld is bij knalStatus 1.
+
+    else if(knalStatus1==3){
+      afstandSetVoxel(knal1X,knal1Y,knal1Z,1);
+    }
+
+    else if(knalStatus1==4){
+      afstandSetVoxel(knal1X,knal1Y,knal1Z,2);
+    }
+    //Bij knalStatus drie en vier, worden de LED-lampjes op één en twee stappen afstand aangezet.
+    //Dit stuk code wordt nog twee keer herhaald, zodat er drie vuurwerkpijlen tegelijk vliegen.
+
+
+    if(knalStatus2==4){
+      knalStatus2=0;
+    }
+    else if(knalStatus2==0){
+      kans2=random(1,4);
+      if(kans2==1){
+        knalStatus2=1;
+      }
+    }
+    else if(knalStatus2==2){
+      if(klaar2==1){
+        klaar2=0;
+        knalStatus2=3;
+      }
+    }
+    else{
+      knalStatus2++;
+    }
+  
+    if(knalStatus2==1){
+      knal2X=random(0,8);
+      knal2Y=random(2,8);
+      knal2Z=random(0,8);
+    }
+
+    else if(knalStatus2==2){
+      setVoxel(knal2X, pijl2Y, knal2Z);
+      if(pijl2Y == knal2Y){
+        pijl2Y = 0;
+        klaar2=1;
+      }
+      else if(pijl2Y < knal2Y){
+        pijl2Y++;
+      }
+    }
+
+    else if(knalStatus2==3){
+      afstandSetVoxel(knal2X,knal2Y,knal2Z,1);
+    }
+
+    else if(knalStatus2==4){
+      afstandSetVoxel(knal2X,knal2Y,knal2Z,2);
+    }
+
+    if(knalStatus3==4){
+      knalStatus3=0;
+    }
+    else if(knalStatus3==0){
+      kans3=random(1,4);
+      if(kans3==1){
+        knalStatus3=1;
+      }
+    }
+    else if(knalStatus3==2){
+      if(klaar3==1){
+        klaar3=0;
+        knalStatus3=3;
+      }
+    }
+    else{
+      knalStatus3++;
+    }
+  
+    if(knalStatus3==1){
+      knal3X=random(0,8);
+      knal3Y=random(2,8);
+      knal3Z=random(0,8);
+    }
+
+    else if(knalStatus3==2){
+      setVoxel(knal3X, pijl3Y, knal3Z);
+      if(pijl3Y == knal3Y){
+        pijl3Y = 0;
+        klaar3=1;
+      }
+      else if(pijl3Y < knal3Y){
+        pijl3Y++;
+      }
+    }
+
+    else if(knalStatus3==3){
+      afstandSetVoxel(knal3X,knal3Y,knal3Z,1);
+    }
+
+    else if(knalStatus3==4){
+      afstandSetVoxel(knal3X,knal3Y,knal3Z,2);
+    }
+  }
+  renderCube();
+}
+
+void tornado(){
+  tijd++;
+  if(tijd>150){
+    tijd=0;
+    clearCube();
+    
+    if(graden==9){
+      graden=0;
+    }
+    else{
+      graden++;
+    }
+    //Hier wordt de variabele graden met één verhoogt.
+    //Als graden negen is, wordt hij terug gezet op nul.
+    
+    for(float i = 0; i<32; i++){
+      int yCor = (i/4);
+      int xCor = round(3.5 + (0.5 * (i/4) * (cos( ( (i/8) + (0.2*graden))* 3.1415))));
+      int zCor = round(3.5 + (0.5 * (i/4) * (sin( ( (i/8) + (0.2*graden))* 3.1415))));
+      setVoxel(xCor, yCor, zCor);
+    }
+    //Hier wordt voor elke Y-coördinaat twee LED-lampjes berekent die het dichtbij een archimedische spiraal die omhoog gaat, staan.
+    //Deze LED-lampjes worden aangezet.
+  }
+  renderCube();
+}
+
+void munt(){
+  tijd++;
+  if (tijd>500){
+    tijd=0;
+    clearCube();
+    
+    for(uint8_t x=0; x<8; x++){
+      for(uint8_t y=0; y<8; y++){
+        z = pow((x-4),2);
+        a = pow((y-4),2);
+        if (z + a <= 9){
+          setVoxel(x, y, 4);
+          setVoxel(x, y, 3);
+        }
+      }
+    }
+    // z en a zijn de twee getallen die bij elkaar worden getelt in een formule van een cirkel : (x-4)^2 +(y-4)^2=9
+    // Er wordt alleen een lampje aangezet als z+a kleiner of gelijk is aan 9
+
+    clearVoxel(4, 4, 4);
+    clearVoxel(4, 4, 3);
+    clearVoxel(4,5,4);
+    clearVoxel(4,3,4);
+    clearVoxel(4,5,3);
+    clearVoxel(4,3,3);
+    //Deze lampjes staan uit om een 1 in het midden te hebben.
+  }
+  renderCube();
+}
+
+void exponentiele_kubus(){
+  if (hoek==7) {
+    hoek = 0;
+  }
+  else{
+    hoek++;
+  }
+  //Hier wordt de variabele hoek met één verhoogd.
+  //Als hoek zeven is, wordt hij terugzet naar nul.
+  
+  ronde=0;
+  while(ronde < 9){
+    tijd++;
+    if(tijd>80){
+      tijd=0;
+ 
+      for (uint8_t i=0; i<ronde; i++){
+        for (uint8_t j=0; j<ronde; j++){
+          for (uint8_t k=0; k<ronde; k++){
+            switch(hoek){
+              case 0:
+                setVoxel(i, j, k);
+                break;
+              case 1:
+                clearVoxel(i, 7 - j, 7 - k);
+                break;
+              case 2:
+                setVoxel(7 - i, j, k);
+                break;
+              case 3:
+                clearVoxel(i, 7 - j, k);
+                break;
+              case 4:
+                setVoxel(7 - i, j, 7 - k);
+                break;
+              case 5:
+                clearVoxel(7 - i, 7 - j, k);
+                break;
+              case 6:
+                setVoxel(7 - i, j, 7 - k);
+                break;
+              case 7:
+                clearVoxel(7 - i, 7 - j,7 - k);
+                break;
+            }
+          }
+        }
+      }
+      ronde++;
+    }
+    renderCube();
+  }
+  //Met deze code wordt een kubus geprogrammeerd die steeds groter wordt. De variabelen i, j en k zijn de x, y en z coordinaten.
+  //De while loop zorgt ervoor dat de hele cubus uiteindelijk gevuld wordt.
+  //De variabele hoek bepaalt uit welke hoek de LED-lampjes aan- of uitgezet worden.
+}
